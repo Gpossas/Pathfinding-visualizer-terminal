@@ -2,6 +2,7 @@ from collections import deque
 import os
 from random import randrange
 from time import sleep
+import heapq
 
 def main():
   Grid()
@@ -46,6 +47,12 @@ class Vertex:
     self.visited = False
     self.path = False
     self.previous = None
+
+  # heap[( priority, Vertex )]
+  # when two priorities are the same it will compare between second position
+  # solves typerror when compare '<' between objects(Vertex)  
+  def __lt__( self, other ) -> bool:
+    return False
   
   def __str__( self ) -> str:
     if self.start:
@@ -158,30 +165,22 @@ class PathFinding:
 
   def dijkstra( self, row, column ) -> None:
 
-    def calculate_distance_of_neighbor_from_the_start_vertex( neighbor: tuple, vertex ):
-      if not Grid.is_border( *neighbor ) and neighbor in unvisited:
-        row, column = neighbor
-        neighbor = self.graph[row][column]
-        distance = shortest_distance[vertex] + neighbor.value
+    def calculate_distance_of_neighbor_from_the_start_vertex( row, column, vertex ):
+      if not Grid.is_border( row, column ) and not ( neighbor := self.graph[row][column] ).visited:
+        distance = shortest_distance.get( vertex, 0 ) + neighbor.value
         if distance < shortest_distance.get( neighbor, float( 'inf' ) ):
+          heapq.heappush( priority_queue, ( distance, neighbor ) )
           shortest_distance[neighbor] = distance
           neighbor.previous = vertex
-    
-    #TODO: MINHEAP/PRIORITY QUEUE
-    def get_shortest_distance_from_start( shortest_distance: dict[Vertex, int], unvisited: set[tuple] ) -> Vertex:
-      minimum_distance = float( 'inf' )
-      for vertex, distance in shortest_distance.items():
-        if vertex.position in unvisited and distance < minimum_distance:
-          minimum_distance = distance
-          minimum_vertex = vertex
-      return minimum_vertex
 
-    start = self.graph[row][column]
+    start: Vertex = self.graph[row][column]
     target = None
+
     shortest_distance = { start: 0 }
-    unvisited: set[tuple] = { ( row, column ) for row in range( self.MAX_ROWS ) for column in range( self.MAX_COLUMNS ) if not Grid.is_border( row, column ) }
-    while unvisited:
-      vertex = get_shortest_distance_from_start( shortest_distance, unvisited )
+    priority_queue: 'heapq' = [ ( 0, start ) ]
+    
+    while priority_queue:
+      vertex = heapq.heappop( priority_queue )[1]
       row, column = vertex.position
 
       if vertex.target: 
@@ -194,13 +193,12 @@ class PathFinding:
       up: tuple = ( row - 1, column )
       bottom: tuple = ( row + 1, column )
       
-      calculate_distance_of_neighbor_from_the_start_vertex( up, vertex )
-      calculate_distance_of_neighbor_from_the_start_vertex( right, vertex )
-      calculate_distance_of_neighbor_from_the_start_vertex( left, vertex )
-      calculate_distance_of_neighbor_from_the_start_vertex( bottom, vertex )
+      calculate_distance_of_neighbor_from_the_start_vertex( *up, vertex )
+      calculate_distance_of_neighbor_from_the_start_vertex( *right, vertex )
+      calculate_distance_of_neighbor_from_the_start_vertex( *left, vertex )
+      calculate_distance_of_neighbor_from_the_start_vertex( *bottom, vertex )
 
-      unvisited.remove( vertex.position )
-      self.graph[row][column].visited = True
+      vertex.visited = True 
       Grid.print_grid()
     
     PathFinding.shortest_path( target )
