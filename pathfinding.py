@@ -14,7 +14,6 @@ def main():
   traversal = input( 'Choose a graph traversal:\n1 - DFS\n2 - BFS\n3 - Dijkstra\n4 - A* search\n' )
   match traversal:
     case '1':
-      print('dfs')
       pathfinding.dfs( start )
     case '2':
       pathfinding.bfs( *start )
@@ -45,6 +44,7 @@ class Vertex:
     self.target = is_target
     self.start = is_start
     self.visited = False
+    self.explored = False
     self.path = False
     self.previous = None
 
@@ -63,6 +63,8 @@ class Vertex:
       return f'{ Color.BORDER }'.join( ( Color.GREEN, Color.END ) )
     if self.visited:
       return f'{ Color.BORDER }'.join( ( Color.BLUE, Color.END ) )
+    if self.explored:
+      return f'{ Color.BORDER }'.join( ( Color.CYAN, Color.END ) )
     else: 
       return f" ".join( ( Color.INVISIBLE, Color.END ) )
     
@@ -77,12 +79,7 @@ class A_star_vertex( Vertex ):
     self.g = float( 'inf' )
     self.h = float( 'inf' )
     self.f: None | int = None
-    self.explored = False
-  
-  def __str__(self) -> str:
-    if self.explored:
-      return f'{ Color.BORDER }'.join( ( Color.RED, Color.END ) )
-    return super().__str__()
+    
 
 class PathFinding:
   def __init__( self, graph, rows, columns ) -> None:
@@ -129,6 +126,7 @@ class PathFinding:
         return
 
       neighbor = self.graph[row][column]
+      neighbor.explored = True
       queue.append( neighbor )
       neighbor.previous = vertex
 
@@ -180,7 +178,7 @@ class PathFinding:
     priority_queue: 'heapq' = [ ( 0, start ) ]
     
     while priority_queue:
-      vertex = heapq.heappop( priority_queue )[1]
+      vertex = heapq.heappop( priority_queue )[-1]
       row, column = vertex.position
 
       if vertex.target: 
@@ -209,54 +207,30 @@ class PathFinding:
       """uses manhattan distance to estimates how far it is from vertex to the target"""
       return abs( vertex_position[0] - target_position[0] ) + abs( vertex_position[1] - target_position[1] )
 
-    def lowest_f_value() -> Vertex:
-      min_f = float( 'inf' )
-      for node in open_set:
-        if node.f < min_f: 
-          min_f = node.f
-          vertex = node
-        elif node.f == vertex.f and node.h < vertex.h:
-          vertex = node
-      return vertex
-
-    def shortest_path( vertex ) -> None:
-      path = []
-      while vertex:
-        path.append( vertex )
-        vertex = vertex.previous
-
-      while path:  
-        vertex = path.pop()
-        vertex.path = True
-        Grid.print_grid()
-
     def calculate_distance( row, column ) -> None:
-      if Grid.is_border( row, column ): return
-      
-      neighbor: Vertex = self.graph[row][column]
-      if neighbor.visited == False:
-        g_cost = vertex.g + neighbor.value
-        h_cost = heuristic( neighbor.position, target )
-        f_cost = g_cost + h_cost
-        # it will never recauculate cause neighbors have the same length
-        if neighbor.f == None or f_cost < neighbor.f:
-          neighbor.g = g_cost
-          neighbor.h = h_cost
-          neighbor.f = f_cost
-          neighbor.previous = vertex
-          open_set.add( neighbor ) # when change set for priority queue, only add if it is not in queue
+      if Grid.is_border( row, column ) or ( neighbor := self.graph[row][column] ).visited: 
+        return
+      neighbor.explored = True
+      g_cost = vertex.g + neighbor.value
+      h_cost = heuristic( neighbor.position, target )
+      f_cost = g_cost + h_cost
+      if neighbor.f == None or f_cost < neighbor.f:
+        neighbor.g, neighbor.h, neighbor.f = g_cost, h_cost, f_cost
+        heapq.heappush( priority_queue, ( f_cost, h_cost, neighbor ) )
+        neighbor.previous = vertex
 
     start = A_star_vertex( start, is_start=True )
     start.g = 0
     start.h = heuristic( start.position, target )
     start.f = start.h
 
-    open_set: set[Vertex] = { start } # TODO: use priority queue
-    while open_set:
-      vertex = lowest_f_value()
-
+    # if two Vertex have the same 'f', check 'h'
+    priority_queue = [ ( start.f, start.h, start ) ]
+    while priority_queue:
+      vertex = heapq.heappop( priority_queue )[-1]
+      
       if vertex.position == target:
-        return shortest_path( vertex.previous )
+        return PathFinding.shortest_path( vertex.previous )
 
       row, column = vertex.position
 
@@ -270,7 +244,6 @@ class PathFinding:
       calculate_distance( *up )
       calculate_distance( *bottom )
       
-      open_set.remove( vertex )
       vertex.visited = True
       Grid.print_grid()
 
