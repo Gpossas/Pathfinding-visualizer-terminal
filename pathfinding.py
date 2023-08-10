@@ -122,15 +122,13 @@ class PathFinding:
 
   def bfs( self, row, column ) -> None:
     def explore( row, column ):
-      if Grid.is_border( row, column ) or self.graph[row][column].visited: 
+      if Grid.is_border( row, column ) or (neighbor := self.graph[row][column]).visited: 
         return
-
-      neighbor = self.graph[row][column]
+      
       neighbor.explored = True
       queue.append( neighbor )
       neighbor.previous = vertex
 
-    target = None
     start = self.graph[row][column]
     queue: list[Vertex] = deque( [ start ] )
     while queue:
@@ -138,14 +136,9 @@ class PathFinding:
       row, column = vertex.position
 
       if vertex.target: 
-        target = vertex
-        break
+        return PathFinding.shortest_path( vertex )
       if vertex.visited: 
         continue
-
-      self.graph[row][column].visited = True
-
-      Grid.print_grid()
 
       # explore neighbors
       left: tuple = ( row, column - 1 )
@@ -157,22 +150,26 @@ class PathFinding:
       explore( *right )
       explore( *up )
       explore( *bottom )
-    
-    PathFinding.shortest_path( target )
+
+      vertex.visited = True
+      Grid.print_grid()
   
 
   def dijkstra( self, row, column ) -> None:
 
     def calculate_distance_of_neighbor_from_the_start_vertex( row, column, vertex ):
-      if not Grid.is_border( row, column ) and not ( neighbor := self.graph[row][column] ).visited:
-        distance = shortest_distance.get( vertex, 0 ) + neighbor.value
-        if distance < shortest_distance.get( neighbor, float( 'inf' ) ):
-          heapq.heappush( priority_queue, ( distance, neighbor ) )
-          shortest_distance[neighbor] = distance
-          neighbor.previous = vertex
+      if Grid.is_border( row, column ) or ( neighbor := self.graph[row][column] ).visited:
+        return
+      
+      neighbor.explored = True
+      distance = shortest_distance.get( vertex, 0 ) + neighbor.value
+      if distance < shortest_distance.get( neighbor, float( 'inf' ) ):
+        # you may want to change heappush for a decrease_key function to not add duplicates in heap, but time complexity is similar
+        heapq.heappush( priority_queue, ( distance, neighbor ) )
+        shortest_distance[neighbor] = distance
+        neighbor.previous = vertex
 
     start: Vertex = self.graph[row][column]
-    target = None
 
     shortest_distance = { start: 0 }
     priority_queue: 'heapq' = [ ( 0, start ) ]
@@ -182,8 +179,7 @@ class PathFinding:
       row, column = vertex.position
 
       if vertex.target: 
-        target = self.graph[row][column]
-        break
+        return PathFinding.shortest_path( vertex )
 
       # explore neighbors
       left: tuple = ( row, column - 1 )
@@ -198,8 +194,6 @@ class PathFinding:
 
       vertex.visited = True 
       Grid.print_grid()
-    
-    PathFinding.shortest_path( target )
 
 
   def a_star( self, start: tuple, target: tuple ) -> None:
